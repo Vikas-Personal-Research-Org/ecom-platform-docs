@@ -1,0 +1,149 @@
+version: '3.8'
+
+services:
+  # --- Infrastructure Services ---
+
+  discovery-server:
+    build:
+      context: ../ecom-discovery-server
+      dockerfile: Dockerfile
+    container_name: discovery-server
+    ports:
+      - "8761:8761"
+    networks:
+      - ecom-network
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8761/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  config-server:
+    build:
+      context: ../ecom-config-server
+      dockerfile: Dockerfile
+    container_name: config-server
+    ports:
+      - "8888:8888"
+    networks:
+      - ecom-network
+    depends_on:
+      discovery-server:
+        condition: service_healthy
+    environment:
+      - EUREKA_CLIENT_SERVICE-URL_DEFAULTZONE=http://discovery-server:8761/eureka/
+
+  api-gateway:
+    build:
+      context: ../ecom-api-gateway
+      dockerfile: Dockerfile
+    container_name: api-gateway
+    ports:
+      - "8080:8080"
+    networks:
+      - ecom-network
+    depends_on:
+      - discovery-server
+      - config-server
+    environment:
+      - EUREKA_CLIENT_SERVICE-URL_DEFAULTZONE=http://discovery-server:8761/eureka/
+
+  # --- Core Business Services ---
+
+  user-service:
+    build:
+      context: ../ecom-user-service
+      dockerfile: Dockerfile
+    container_name: user-service
+    ports:
+      - "8084:8084"
+    networks:
+      - ecom-network
+    depends_on:
+      - discovery-server
+      - config-server
+    environment:
+      - EUREKA_CLIENT_SERVICE-URL_DEFAULTZONE=http://discovery-server:8761/eureka/
+
+  product-service:
+    build:
+      context: ../ecom-product-service
+      dockerfile: Dockerfile
+    container_name: product-service
+    ports:
+      - "8081:8081"
+    networks:
+      - ecom-network
+    depends_on:
+      - discovery-server
+      - config-server
+    environment:
+      - EUREKA_CLIENT_SERVICE-URL_DEFAULTZONE=http://discovery-server:8761/eureka/
+
+  inventory-service:
+    build:
+      context: ../ecom-inventory-service
+      dockerfile: Dockerfile
+    container_name: inventory-service
+    ports:
+      - "8082:8082"
+    networks:
+      - ecom-network
+    depends_on:
+      - discovery-server
+      - config-server
+    environment:
+      - EUREKA_CLIENT_SERVICE-URL_DEFAULTZONE=http://discovery-server:8761/eureka/
+
+  # --- Orchestration Services ---
+
+  order-service:
+    build:
+      context: ../ecom-order-service
+      dockerfile: Dockerfile
+    container_name: order-service
+    ports:
+      - "8083:8083"
+    networks:
+      - ecom-network
+    depends_on:
+      - discovery-server
+      - config-server
+      - inventory-service
+      - payment-service
+    environment:
+      - EUREKA_CLIENT_SERVICE-URL_DEFAULTZONE=http://discovery-server:8761/eureka/
+
+  payment-service:
+    build:
+      context: ../ecom-payment-service
+      dockerfile: Dockerfile
+    container_name: payment-service
+    ports:
+      - "8085:8085"
+    networks:
+      - ecom-network
+    depends_on:
+      - discovery-server
+      - config-server
+    environment:
+      - EUREKA_CLIENT_SERVICE-URL_DEFAULTZONE=http://discovery-server:8761/eureka/
+
+  notification-service:
+    build:
+      context: ../ecom-notification-service
+      dockerfile: Dockerfile
+    container_name: notification-service
+    ports:
+      - "8086:8086"
+    networks:
+      - ecom-network
+    depends_on:
+      - discovery-server
+      - config-server
+    environment:
+      - EUREKA_CLIENT_SERVICE-URL_DEFAULTZONE=http://discovery-server:8761/eureka/
+
+networks:
+  ecom-network:
+    driver: bridge
